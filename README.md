@@ -1,6 +1,6 @@
 # Benchmark Repository Playground
 
-This project is a personal playground for testing CRUD app ideas around a benchmark repository. The main concept is a small system where users can log in, manage memberships, register benchmark scripts and hardware profiles, and store benchmark results. It is meant both as a practical full-stack exercise and as a foundation for experimenting with computation- and hardware-oriented app design.
+This project is a personal playground for trying out CRUD development concepts in a domain I find interesting: benchmarking. The benchmark repository idea gives the app a concrete shape, with users, memberships, benchmark scripts, hardware profiles, and benchmark results, but the main goal is to explore full-stack CRUD patterns through a practical example.
 
 ## Stack
 
