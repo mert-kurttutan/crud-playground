@@ -22,7 +22,9 @@ Planned local development flow:
 ```bash
 # backend
 cd backend
-uvicorn app.main:app --reload
+uv sync
+cp .env.example .env
+uv run uvicorn app.main:app --reload
 
 # frontend
 cd frontend
