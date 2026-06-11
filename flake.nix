@@ -20,6 +20,8 @@
           packages = with pkgs; [
             python312
             uv
+            nodejs_22
+            pnpm
           ];
         };
       }
