@@ -12,6 +12,7 @@
 	let nextId = 3;
 	let apiStatus = $state('Not checked');
 	let apiDetail = $state('Start FastAPI, then check the health endpoint.');
+	let scoreError = $state('');
 
 	let form = $state({
 		name: '',
@@ -46,9 +47,16 @@
 	function addBenchmark(event: SubmitEvent) {
 		event.preventDefault();
 
-		const score = Number(form.score);
+		const rawScore = form.score.trim();
+		const score = Number(rawScore);
+		scoreError = '';
 
-		if (!form.name.trim() || !form.script.trim() || !form.hardware.trim() || Number.isNaN(score)) {
+		if (rawScore === '' || Number.isNaN(score)) {
+			scoreError = 'Score should be a number.';
+			return;
+		}
+
+		if (!form.name.trim() || !form.script.trim() || !form.hardware.trim()) {
 			return;
 		}
 
@@ -69,6 +77,13 @@
 		form.score = '';
 		form.unit = 'ops/sec';
 		form.notes = '';
+		scoreError = '';
+	}
+
+	function clearScoreError() {
+		if (scoreError) {
+			scoreError = '';
+		}
 	}
 
 	function removeBenchmark(id: number) {
@@ -154,7 +169,18 @@
 			<div class="field-row">
 				<label>
 					Score
-					<input bind:value={form.score} inputmode="decimal" placeholder="1820" required />
+					<input
+						bind:value={form.score}
+						aria-describedby={scoreError ? 'score-error' : undefined}
+						aria-invalid={scoreError ? 'true' : undefined}
+						inputmode="decimal"
+						oninput={clearScoreError}
+						placeholder="1820"
+						required
+					/>
+					{#if scoreError}
+						<span id="score-error" class="error">{scoreError}</span>
+					{/if}
 				</label>
 
 				<label>
@@ -354,6 +380,20 @@
 	textarea:focus {
 		border-color: #147d7e;
 		outline: 3px solid rgb(20 125 126 / 16%);
+	}
+
+	input[aria-invalid='true'] {
+		border-color: #b42318;
+	}
+
+	input[aria-invalid='true']:focus {
+		outline-color: rgb(180 35 24 / 16%);
+	}
+
+	.error {
+		color: #b42318;
+		font-size: 0.82rem;
+		font-weight: 700;
 	}
 
 	button {
