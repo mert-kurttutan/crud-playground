@@ -17,7 +17,19 @@ Run it locally with separate frontend and backend services.
 2. Run the FastAPI backend.
 3. Run the SvelteKit frontend.
 
-Planned local development flow:
+### Prepare Environment
+
+You need to have necessary dependencies to continue development. You can get them in different ways, e.g. nix below.
+
+#### Nix
+
+Enter the development shell from the repository root:
+
+```bash
+nix develop
+```
+
+### Run Services
 
 ```bash
 # backend
