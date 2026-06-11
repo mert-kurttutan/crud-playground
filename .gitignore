@@ -1,0 +1,15 @@
+.direnv/
+.env
+.env.*
+
+__pycache__/
+*.py[cod]
+
+backend/.venv/
+backend/.pdm-build/
+
+frontend/.svelte-kit/
+frontend/build/
+frontend/node_modules/
+frontend/.env
+frontend/.env.*
