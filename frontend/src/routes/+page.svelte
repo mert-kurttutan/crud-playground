@@ -94,7 +94,7 @@
 		}
 	}
 
-	const healthUrl = 'http://127.0.0.1:8000/api/v1/health';
+	const healthUrl = '/api/v1/health';
 
 	async function checkApi() {
 		apiStatus = 'Checking';
