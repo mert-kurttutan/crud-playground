@@ -22,6 +22,9 @@
             uv
             nodejs_22
             pnpm
+            wrangler
+            awscli2
+            docker
           ];
         };
       }
