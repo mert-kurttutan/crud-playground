@@ -95,19 +95,13 @@ The backend image is built from `backend/Dockerfile`. The CloudFormation templat
 Deploy or update the build stack:
 
 ```bash
-aws cloudformation deploy \
-  --template-file infra/codebuild-ecr.yml \
-  --stack-name crud-codebuild-ecr \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
+infra/deploy-codebuild-ecr.nu
 ```
 
-Start a backend image build:
+Deploy the stack and immediately start the first backend image build:
 
 ```bash
-aws codebuild start-build \
-  --project-name crud-backend-image \
-  --region us-east-1
+infra/deploy-codebuild-ecr.nu --start-build
 ```
 
 Builds are tagged with the Git commit hash. The image URI shape is:
@@ -125,16 +119,11 @@ serverless infrastructure:
 - API Gateway HTTP API
 - default API routes `ANY /` and `ANY /{proxy+}`
 
-Deploy or update the infrastructure stack:
+Deploy or update the infrastructure stack with the custom domain:
 
 ```bash
-aws cloudformation deploy \
-  --template-file infra/serverless-api.yml \
-  --stack-name crud-serverless-api \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1 \
-  --parameter-overrides \
-    ImageUri=<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha>
+infra/deploy-serverless-api.nu \
+  --image-uri <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha>
 ```
 
 Get the API outputs:
@@ -150,18 +139,9 @@ Routine backend releases should update only the Lambda container image, not the
 whole infrastructure stack:
 
 ```bash
-aws lambda update-function-code \
-  --function-name crud-fastapi \
+infra/update-serverless-image.nu \
   --image-uri <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha> \
-  --region us-east-1
-```
-
-Wait for the update:
-
-```bash
-aws lambda wait function-updated \
-  --function-name crud-fastapi \
-  --region us-east-1
+  --wait
 ```
 
 Test the API:
@@ -176,8 +156,10 @@ outputs.
 
 ### Backend API Custom Domain
 
-The API custom domain is optional. It uses an ACM certificate in AWS and a CNAME
-record in Cloudflare.
+The API custom domain uses an ACM certificate in AWS and a CNAME record in
+Cloudflare. The deploy script automatically finds an issued certificate for
+`api.crud.mert-kurttutan.com`. Set `CERTIFICATE_ARN` only when you need to
+override that lookup.
 
 Request the certificate once:
 
@@ -213,15 +195,8 @@ aws acm wait certificate-validated \
 Deploy the serverless stack with the custom domain:
 
 ```bash
-aws cloudformation deploy \
-  --template-file infra/serverless-api.yml \
-  --stack-name crud-serverless-api \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1 \
-  --parameter-overrides \
-    ImageUri=<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha> \
-    CustomDomainName=api.crud.mert-kurttutan.com \
-    CertificateArn="$CertificateArn"
+infra/deploy-serverless-api.nu \
+  --image-uri <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha>
 ```
 
 ### Cloudflare API DNS
@@ -232,7 +207,7 @@ After the API stack has a custom domain output, sync the Cloudflare CNAME with:
 export CLOUDFLARE_API_TOKEN="..."
 export CLOUDFLARE_ZONE_ID="..."
 
-infra/sync-cloudflare-api-dns.sh
+infra/sync-cloudflare-api-dns.nu
 ```
 
 Defaults:
@@ -249,5 +224,23 @@ Override them inline when needed:
 ```bash
 RECORD_NAME=api.crud.mert-kurttutan.com \
 CLOUDFLARE_PROXIED=false \
-infra/sync-cloudflare-api-dns.sh
+infra/sync-cloudflare-api-dns.nu
+```
+
+Detach the Cloudflare DNS record:
+
+```bash
+infra/desync-cloudflare-api-dns.nu
+```
+
+Delete the serverless stack:
+
+```bash
+infra/delete-serverless-api.nu --wait
+```
+
+Delete the CodeBuild/ECR stack after emptying the ECR repository:
+
+```bash
+infra/delete-codebuild-ecr.nu --wait
 ```

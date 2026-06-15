@@ -25,7 +25,7 @@
             wrangler
             awscli2
             docker
-            jq
+            nushell
           ];
         };
       }
