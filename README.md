@@ -173,3 +173,81 @@ curl <ApiEndpoint>/api/v1/health
 
 The `ApiEndpoint` value is available from the `crud-serverless-api` stack
 outputs.
+
+### Backend API Custom Domain
+
+The API custom domain is optional. It uses an ACM certificate in AWS and a CNAME
+record in Cloudflare.
+
+Request the certificate once:
+
+```bash
+aws acm request-certificate \
+  --domain-name api.crud.mert-kurttutan.com \
+  --validation-method DNS \
+  --region us-east-1
+```
+
+Get the DNS validation record:
+
+```bash
+CertificateArn=$(aws acm list-certificates \
+  --region us-east-1 \
+  --query "CertificateSummaryList[?DomainName=='api.crud.mert-kurttutan.com'].CertificateArn" \
+  --output text)
+
+aws acm describe-certificate \
+  --certificate-arn "$CertificateArn" \
+  --region us-east-1 \
+  --query "Certificate.DomainValidationOptions[0].ResourceRecord"
+```
+
+Add the returned CNAME to Cloudflare DNS as DNS only, then wait for validation:
+
+```bash
+aws acm wait certificate-validated \
+  --certificate-arn "$CertificateArn" \
+  --region us-east-1
+```
+
+Deploy the serverless stack with the custom domain:
+
+```bash
+aws cloudformation deploy \
+  --template-file infra/serverless-api.yml \
+  --stack-name crud-serverless-api \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1 \
+  --parameter-overrides \
+    ImageUri=<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha> \
+    CustomDomainName=api.crud.mert-kurttutan.com \
+    CertificateArn="$CertificateArn"
+```
+
+### Cloudflare API DNS
+
+After the API stack has a custom domain output, sync the Cloudflare CNAME with:
+
+```bash
+export CLOUDFLARE_API_TOKEN="..."
+export CLOUDFLARE_ZONE_ID="..."
+
+infra/sync-cloudflare-api-dns.sh
+```
+
+Defaults:
+
+```text
+RECORD_NAME=api.crud.mert-kurttutan.com
+STACK_NAME=crud-serverless-api
+AWS_REGION=us-east-1
+CLOUDFLARE_PROXIED=false
+```
+
+Override them inline when needed:
+
+```bash
+RECORD_NAME=api.crud.mert-kurttutan.com \
+CLOUDFLARE_PROXIED=false \
+infra/sync-cloudflare-api-dns.sh
+```
