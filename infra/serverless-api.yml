@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Serverless FastAPI backend using a Lambda container image and API Gateway HTTP API.
+
+Parameters:
+  FunctionName:
+    Type: String
+    Default: crud-fastapi
+    Description: Lambda function name.
+  ImageUri:
+    Type: String
+    Default: <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:latest
+    Description: Private ECR image URI for the FastAPI Lambda container.
+  ApiName:
+    Type: String
+    Default: crud-fastapi-api
+    Description: API Gateway HTTP API name.
+  MemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 10240
+    Description: Lambda memory size in MB.
+  Timeout:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 900
+    Description: Lambda timeout in seconds.
+  FrontendOrigin:
+    Type: String
+    Default: https://crud.mert-kurttutan.com
+    Description: Browser origin allowed by API Gateway CORS.
+  CustomDomainName:
+    Type: String
+    Default: ""
+    Description: Optional API custom domain, for example api.crud.mert-kurttutan.com.
+  CertificateArn:
+    Type: String
+    Default: ""
+    Description: Optional ACM certificate ARN for the custom domain.
+
+Conditions:
+  UseCustomDomain: !And
+    - !Not [!Equals [!Ref CustomDomainName, ""]]
+    - !Not [!Equals [!Ref CertificateArn, ""]]
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${FunctionName}-execution-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: lambda-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${FunctionName}:*"
+
+  BackendFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      Role: !GetAtt LambdaExecutionRole.Arn
+      PackageType: Image
+      Code:
+        ImageUri: !Ref ImageUri
+      Architectures:
+        - x86_64
+      MemorySize: !Ref MemorySize
+      Timeout: !Ref Timeout
+      Environment:
+        Variables:
+          AWS_LWA_PORT: "8000"
+          APP_NAME: Benchmark Repository API
+          API_PREFIX: /api/v1
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Ref ApiName
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref FrontendOrigin
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - "*"
+        AllowCredentials: true
+
+  BackendIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt BackendFunction.Arn
+      PayloadFormatVersion: "2.0"
+
+  RootRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: ANY /
+      Target: !Sub "integrations/${BackendIntegration}"
+
+  ProxyRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: ANY /{proxy+}
+      Target: !Sub "integrations/${BackendIntegration}"
+
+  DefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default
+      AutoDeploy: true
+
+  ApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref BackendFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*"
+
+  ApiCustomDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Condition: UseCustomDomain
+    Properties:
+      DomainName: !Ref CustomDomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref CertificateArn
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+
+  ApiCustomDomainMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Condition: UseCustomDomain
+    DependsOn:
+      - DefaultStage
+      - ApiCustomDomain
+    Properties:
+      ApiId: !Ref HttpApi
+      DomainName: !Ref ApiCustomDomain
+      Stage: !Ref DefaultStage
+
+Outputs:
+  LambdaFunctionName:
+    Description: Lambda function running the FastAPI container.
+    Value: !Ref BackendFunction
+  ApiEndpoint:
+    Description: Default HTTPS endpoint for the API Gateway HTTP API.
+    Value: !GetAtt HttpApi.ApiEndpoint
+  CustomDomainUrl:
+    Condition: UseCustomDomain
+    Description: Custom domain URL for the API.
+    Value: !Sub "https://${CustomDomainName}"
+  CustomDomainRegionalTarget:
+    Condition: UseCustomDomain
+    Description: DNS target for the custom domain CNAME.
+    Value: !GetAtt ApiCustomDomain.RegionalDomainName
