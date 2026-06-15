@@ -94,7 +94,7 @@
 		}
 	}
 
-	const healthUrl = '/api/v1/health';
+	const healthUrl = 'https://api.crud.mert-kurttutan.com/api/v1/health';
 
 	async function checkApi() {
 		apiStatus = 'Checking';
