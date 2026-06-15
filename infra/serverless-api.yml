@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Serverless FastAPI backend using a Lambda container image and API Gateway HTTP API.
+Description: Serverless FastAPI backend infrastructure using Lambda and API Gateway HTTP API.
 
 Parameters:
   FunctionName:
@@ -8,8 +8,7 @@ Parameters:
     Description: Lambda function name.
   ImageUri:
     Type: String
-    Default: <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:latest
-    Description: Private ECR image URI for the FastAPI Lambda container.
+    Description: Initial private ECR image URI for creating the FastAPI Lambda container. Routine image updates should use update-function-code.
   ApiName:
     Type: String
     Default: crud-fastapi-api

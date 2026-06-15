@@ -110,28 +110,31 @@ aws codebuild start-build \
   --region us-east-1
 ```
 
-The image URI is:
+Builds are tagged with the Git commit hash. The image URI shape is:
 
 ```text
-<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:latest
+<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha>
 ```
 
 ### Backend API: Lambda and API Gateway
 
-The CloudFormation template `infra/serverless-api.yml` creates:
+The CloudFormation template `infra/serverless-api.yml` bootstraps stable
+serverless infrastructure:
 
 - Lambda function `crud-fastapi`
 - API Gateway HTTP API
 - default API routes `ANY /` and `ANY /{proxy+}`
 
-Deploy or update the API stack:
+Deploy or update the infrastructure stack:
 
 ```bash
 aws cloudformation deploy \
   --template-file infra/serverless-api.yml \
   --stack-name crud-serverless-api \
   --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
+  --region us-east-1 \
+  --parameter-overrides \
+    ImageUri=<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha>
 ```
 
 Get the API outputs:
@@ -143,13 +146,13 @@ aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs"
 ```
 
-If a new image is pushed to the same `latest` tag, Lambda does not update
-automatically. Refresh the function code:
+Routine backend releases should update only the Lambda container image, not the
+whole infrastructure stack:
 
 ```bash
 aws lambda update-function-code \
   --function-name crud-fastapi \
-  --image-uri <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:latest \
+  --image-uri <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/crud/fastapi:<git-commit-sha> \
   --region us-east-1
 ```
 
